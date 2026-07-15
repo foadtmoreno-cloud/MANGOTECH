@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda Tech | Sistema de Ventas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        .carousel-section { margin-bottom: 32px; }
+        .carousel-container {
+            width: 100%;
+            max-width: 900px;
+            height: 380px;
+            margin: 0 auto;
+            overflow: hidden;
+            border-radius: 16px;
+            position: relative;
+            border: 1px solid var(--glass-border);
+        }
+        .carousel-track {
+            display: flex;
+            width: 400%;
+            height: 380px;
+            animation: slideCarousel 16s infinite ease-in-out;
+        }
+        .carousel-item {
+            width: 25%;
+            height: 380px;
+            position: relative;
+            background: var(--dark-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .carousel-item i {
+            font-size: 120px;
+            color: var(--primary);
+            opacity: 0.3;
+            margin-bottom: 20px;
+        }
+        .carousel-item::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 180px;
+            background: linear-gradient(to top, rgba(10, 14, 18, 0.96), transparent);
+        }
+        .carousel-caption {
+            position: absolute;
+            bottom: 30px;
+            left: 35px;
+            color: white;
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 700;
+            z-index: 2;
+            letter-spacing: -0.3px;
+        }
+        .carousel-caption span {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--primary-light);
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        @keyframes slideCarousel {
+            0%, 20% { transform: translateX(0); }
+            25%, 45% { transform: translateX(-25%); }
+            50%, 70% { transform: translateX(-50%); }
+            75%, 95% { transform: translateX(-75%); }
+            100% { transform: translateX(0); }
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            margin-bottom: 32px;
+        }
+        @media (max-width: 1000px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 14, 18, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .loading-overlay.hidden { display: none; }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 3px solid var(--glass-border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            color: var(--primary-light);
+            font-family: var(--font-mono);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">&gt; Conectando a la base de datos...</div>
+</div>
+
+<div class="bg-animation">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+<div class="noise"></div>
+
+<div class="container">
+
+    <div class="header animate-in">
+        <div class="header-left">
+            <div class="logo-icon">
+                <i class="fas fa-terminal"></i>
+            </div>
+            <div class="header-text">
+                <h1>Sistema de Ventas</h1>
+                <p>&gt; Tienda Tech — Punto de Venta</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="inicio.html" class="btn-header btn-header-primary">
+                <i class="fas fa-home"></i> Inicio
+            </a>
+        </div>
+    </div>
+
+    <div class="carousel-section animate-in delay-1">
+        <div class="carousel-container">
+            <div class="carousel-track">
+                <div class="carousel-item">
+                    <i class="fas fa-mouse"></i>
+                    <div class="carousel-caption">Mouse Gamer Pro<span>Precision Extrema</span></div>
+                </div>
+                <div class="carousel-item">
+                    <i class="fas fa-desktop"></i>
+                    <div class="carousel-caption">Monitor LED 4K<span>Calidad Ultra HD</span></div>
+                </div>
+                <div class="carousel-item">
+                    <i class="fas fa-bolt"></i>
+                    <div class="carousel-caption">Fuente de Poder 750W<span>Potencia Total</span></div>
+                </div>
+                <div class="carousel-item">
+                    <i class="fas fa-keyboard"></i>
+                    <div class="carousel-caption">Teclado Mecanico RGB<span>Estilo Unico</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-grid">
+
+        <div class="card animate-in delay-2">
+            <div class="card-title">
+                <div class="card-title-icon"><i class="fas fa-user-plus"></i></div>
+                Nueva Venta
+            </div>
+
+            <form id="formVenta" onsubmit="return agregarProducto(event)">
+
+                <div class="section-label"><i class="fas fa-user"></i> Datos del Cliente</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-id-card"></i> DNI</label>
+                        <input type="text" id="dni" required placeholder="Ingrese DNI">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Nombre Completo</label>
+                        <input type="text" id="nombre" required placeholder="Nombre del cliente">
+                    </div>
+                </div>
+
+                <div class="form-row" style="grid-template-columns: 1fr;">
+                    <div class="form-group">
+                        <label><i class="fas fa-envelope"></i> E-Mail</label>
+                        <input type="email" id="email" required placeholder="correo@ejemplo.com">
+                    </div>
+                </div>
+
+                <div class="form-row" style="grid-template-columns: 1fr;">
+                    <div class="form-group">
+                        <label><i class="fas fa-phone"></i> Celular</label>
+                        <input type="text" id="celular" maxlength="8" required placeholder="0000-0000">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-calendar"></i> Fecha</label>
+                        <input type="text" id="fecha" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-clock"></i> Hora</label>
+                        <input type="text" id="hora" readonly>
+                    </div>
+                </div>
+
+                <div class="section-divider">
+                    <div class="section-label"><i class="fas fa-shopping-cart"></i> Datos de la Compra</div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-laptop"></i> Producto</label>
+                        <select id="producto" required>
+                            <option value="">Seleccione un producto...</option>
+                            <option value="Mouse Optico">Mouse Optico</option>
+                            <option value="Teclado USB">Teclado USB</option>
+                            <option value="Monitor LED">Monitor LED</option>
+                            <option value="Disco Duro 1TB">Disco Duro 1TB</option>
+                            <option value="Memoria RAM 8GB">Memoria RAM 8GB</option>
+                            <option value="Tarjeta Madre">Tarjeta Madre</option>
+                            <option value="Procesador Intel">Procesador Intel</option>
+                            <option value="Fuente de Poder">Fuente de Poder</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label><i class="fas fa-tag"></i> Precio (L.)</label>
+                            <input type="number" id="precio" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-sort-numeric-up"></i> Cantidad</label>
+                            <input type="number" id="cantidad" min="1" required placeholder="1">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-add">
+                    <i class="fas fa-plus-circle"></i> Agregar al Carrito
+                </button>
+
+            </form>
+        </div>
+
+        <div class="card receipt-card animate-in delay-3">
+            <div class="card-title">
+                <div class="card-title-icon"><i class="fas fa-receipt"></i></div>
+                Carrito de Compras
+                <span class="cart-badge" id="cartBadge" style="display:none;">
+                    <i class="fas fa-box"></i> <span id="cartCount">0</span> items
+                </span>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Precio</th>
+                            <th>Cant.</th>
+                            <th>Subtotal</th>
+                            <th>Desc.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartBody">
+                        <tr>
+                            <td colspan="5">
+                                <div class="empty-cart">
+                                    <i class="fas fa-shopping-basket"></i>
+                                    <p>No hay productos en el carrito</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="receipt-barcode"></div>
+
+            <div class="totals-section">
+                <div class="totals-row">
+                    <span><i class="fas fa-boxes"></i> Cantidad de Productos</span>
+                    <span id="totalProductos">0</span>
+                </div>
+                <div class="totals-row">
+                    <span><i class="fas fa-percentage"></i> Impuesto (15%)</span>
+                    <span id="impuesto">L. 0.00</span>
+                </div>
+                <div class="totals-row">
+                    <span><i class="fas fa-tags"></i> Descuento Total</span>
+                    <span id="descuento">L. 0.00</span>
+                </div>
+                <div class="totals-row total-final">
+                    <span><i class="fas fa-coins"></i> TOTAL A PAGAR</span>
+                    <span id="totalPago">L. 0.00</span>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button type="button" class="btn-send" onclick="enviarVenta()">
+                    <i class="fas fa-paper-plane"></i> Enviar Venta
+                </button>
+                <button type="button" class="btn-clear" onclick="limpiarCarrito()">
+                    <i class="fas fa-trash-alt"></i> Limpiar
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <p><i class="fas fa-microchip"></i> Sistema de Ventas Tech &copy; <span id="year"></span> - Todos los derechos reservados</p>
+    </div>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+// ========== LOCALSTORAGE PARA CARRITO TEMPORAL ==========
+const DB_LOCAL = {
+    getCart: () => JSON.parse(localStorage.getItem('cart') || '[]'),
+    setCart: (val) => localStorage.setItem('cart', JSON.stringify(val)),
+    getClienteTemp: () => JSON.parse(localStorage.getItem('clienteTemp') || '{}'),
+    setClienteTemp: (val) => localStorage.setItem('clienteTemp', JSON.stringify(val))
+};
+
+// ========== INICIALIZAR ==========
+function init() {
+    document.getElementById('year').textContent = new Date().getFullYear();
+    actualizarFechaHora();
+    setInterval(actualizarFechaHora, 1000);
+    cargarClienteTemp();
+    renderCart();
+
+    // Ocultar loading cuando Supabase esté listo
+    setTimeout(() => {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }, 1500);
+}
+
+function actualizarFechaHora() {
+    const now = new Date();
+    document.getElementById('fecha').value = now.toLocaleDateString('es-ES');
+    document.getElementById('hora').value = now.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+}
+
+function cargarClienteTemp() {
+    const temp = DB_LOCAL.getClienteTemp();
+    if (temp.dni) document.getElementById('dni').value = temp.dni;
+    if (temp.nombre) document.getElementById('nombre').value = temp.nombre;
+    if (temp.email) document.getElementById('email').value = temp.email;
+    if (temp.celular) document.getElementById('celular').value = temp.celular;
+}
+
+function guardarClienteTemp() {
+    DB_LOCAL.setClienteTemp({
+        dni: document.getElementById('dni').value,
+        nombre: document.getElementById('nombre').value,
+        email: document.getElementById('email').value,
+        celular: document.getElementById('celular').value
+    });
+}
+
+['dni','nombre','email','celular'].forEach(id => {
+    document.getElementById(id).addEventListener('input', guardarClienteTemp);
+});
+
+// ========== AGREGAR PRODUCTO ==========
+function agregarProducto(e) {
+    e.preventDefault();
+
+    const producto = document.getElementById('producto').value;
+    const precio = parseFloat(document.getElementById('precio').value);
+    const cantidad = parseInt(document.getElementById('cantidad').value);
+
+    if (!producto || isNaN(precio) || isNaN(cantidad)) return false;
+
+    const subtotal = precio * cantidad;
+    let descuento = 0;
+    if (cantidad >= 5) descuento = subtotal * 0.10;
+
+    const cart = DB_LOCAL.getCart();
+    cart.push({ producto, precio, cantidad, subtotal, descuento });
+    DB_LOCAL.setCart(cart);
+
+    document.getElementById('producto').value = '';
+    document.getElementById('precio').value = '';
+    document.getElementById('cantidad').value = '';
+
+    renderCart();
+    return false;
+}
+
+// ========== RENDER CARRITO ==========
+function renderCart() {
+    const cart = DB_LOCAL.getCart();
+    const tbody = document.getElementById('cartBody');
+
+    if (cart.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-cart"><i class="fas fa-shopping-basket"></i><p>No hay productos en el carrito</p></div></td></tr>`;
+        document.getElementById('cartBadge').style.display = 'none';
+    } else {
+        let html = '';
+        cart.forEach((prod) => {
+            const icono = getIcono(prod.producto);
+            html += `<tr>
+                <td><div class="product-name"><div class="product-icon"><i class="fas ${icono}"></i></div>${prod.producto}</div></td>
+                <td class="price-cell">L. ${formatNum(prod.precio)}</td>
+                <td><span class="qty-badge">${prod.cantidad}</span></td>
+                <td class="subtotal-cell">L. ${formatNum(prod.subtotal)}</td>
+                <td class="discount-cell">${prod.descuento > 0 ? 'L. ' + formatNum(prod.descuento) : '-'}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+        document.getElementById('cartBadge').style.display = 'flex';
+        document.getElementById('cartCount').textContent = cart.length;
+    }
+
+    let totalProductos = 0, subtotalGeneral = 0, totalDescuento = 0;
+    cart.forEach(p => {
+        totalProductos += p.cantidad;
+        subtotalGeneral += p.subtotal;
+        totalDescuento += p.descuento;
+    });
+    const impuesto = (subtotalGeneral - totalDescuento) * 0.15;
+    const totalPago = (subtotalGeneral - totalDescuento) + impuesto;
+
+    document.getElementById('totalProductos').textContent = totalProductos;
+    document.getElementById('impuesto').textContent = 'L. ' + formatNum(impuesto);
+    document.getElementById('descuento').textContent = 'L. ' + formatNum(totalDescuento);
+    document.getElementById('totalPago').textContent = 'L. ' + formatNum(totalPago);
+}
+
+function getIcono(producto) {
+    const p = producto.toLowerCase();
+    if(p.includes('mouse')) return 'fa-mouse';
+    if(p.includes('teclado')) return 'fa-keyboard';
+    if(p.includes('monitor')) return 'fa-desktop';
+    if(p.includes('disco')) return 'fa-hdd';
+    if(p.includes('ram')) return 'fa-memory';
+    if(p.includes('fuente')) return 'fa-bolt';
+    if(p.includes('procesador')) return 'fa-microchip';
+    if(p.includes('tarjeta')) return 'fa-server';
+    return 'fa-microchip';
+}
+
+function formatNum(n) {
+    return Number(n).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// ========== LIMPIAR CARRITO ==========
+function limpiarCarrito() {
+    if (!confirm('¿Seguro que deseas limpiar el carrito?')) return;
+    DB_LOCAL.setCart([]);
+    DB_LOCAL.setClienteTemp({});
+    document.getElementById('dni').value = '';
+    document.getElementById('nombre').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('celular').value = '';
+    renderCart();
+}
+
+// ========== ENVIAR VENTA A SUPABASE ==========
+async function enviarVenta() {
+    const cart = DB_LOCAL.getCart();
+    if (cart.length === 0) {
+        alert('No hay productos en el carrito');
+        return;
+    }
+
+    const dni = document.getElementById('dni').value.trim();
+    const nombre = document.getElementById('nombre').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const celular = document.getElementById('celular').value.trim();
+
+    if (!dni || !nombre || !email || !celular) {
+        alert('Complete todos los datos del cliente');
+        return;
+    }
+
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    document.querySelector('.loading-text').textContent = '> Guardando en la base de datos...';
+
+    try {
+        // 1. Guardar/actualizar cliente en Supabase
+        const { error: clienteError } = await supabase
+            .from('clientes')
+            .upsert({ dni, nombre, email, celular }, { onConflict: 'dni' });
+
+        if (clienteError) throw clienteError;
+
+        // 2. Guardar ventas en Supabase
+        const fecha = new Date().toISOString().split('T')[0];
+        const hora = new Date().toTimeString().split(' ')[0];
+
+        const ventas = cart.map(prod => ({
+            dni_cliente: dni,
+            producto: prod.producto,
+            precio: prod.precio,
+            cantidad: prod.cantidad,
+            subtotal: prod.subtotal,
+            descuento: prod.descuento,
+            fecha: fecha,
+            hora: hora
+        }));
+
+        const { error: ventasError } = await supabase
+            .from('ventas')
+            .insert(ventas);
+
+        if (ventasError) throw ventasError;
+
+        // 3. Guardar datos para la página de confirmación
+        let subtotalGeneral = 0, totalDescuento = 0;
+        cart.forEach(p => { subtotalGeneral += p.subtotal; totalDescuento += p.descuento; });
+        const impuesto = (subtotalGeneral - totalDescuento) * 0.15;
+        const totalPago = (subtotalGeneral - totalDescuento) + impuesto;
+
+        localStorage.setItem('ultimaVenta', JSON.stringify({
+            dni, nombre, email, celular, productos: cart,
+            fecha: new Date().toLocaleString('es-ES'),
+            subtotal: subtotalGeneral,
+            descuento: totalDescuento,
+            impuesto: impuesto,
+            total: totalPago
+        }));
+
+        // Limpiar carrito
+        DB_LOCAL.setCart([]);
+        DB_LOCAL.setClienteTemp({});
+
+        window.location.href = 'guardar.html';
+
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Error al guardar: ' + err.message);
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+}
+
+init();
+</script>
+
+</body>
+</html>

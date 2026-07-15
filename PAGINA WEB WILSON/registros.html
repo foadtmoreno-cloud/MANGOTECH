@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registros de Ventas | Tienda Tech</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        .table-section { margin-bottom: 32px; }
+        .name-cell { display: flex; align-items: center; gap: 12px; }
+        .product-cell { display: flex; align-items: center; gap: 12px; }
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 14, 18, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .loading-overlay.hidden { display: none; }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 3px solid var(--glass-border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            color: var(--primary-light);
+            font-family: var(--font-mono);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">&gt; Cargando datos de la base de datos...</div>
+</div>
+
+<div class="bg-animation">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+<div class="noise"></div>
+
+<div class="container">
+
+    <div class="header">
+        <div class="header-left">
+            <i class="fas fa-store" style="font-size:28px; color:var(--primary);"></i>
+            <div>
+                <h1>Registros de Ventas</h1>
+                <p>Panel de control de transacciones</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="inicio.html" class="btn-header btn-header-primary">
+                <i class="fas fa-home"></i> Inicio
+            </a>
+        </div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <div class="table-section">
+        <div class="table-header">
+            <h2><i class="fas fa-list-alt"></i> Historial de Transacciones</h2>
+            <span class="badge" id="badgeRegistros"><i class="fas fa-database"></i> 0 registros</span>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-id-card"></i> DNI Cliente</th>
+                        <th><i class="fas fa-user"></i> Cliente</th>
+                        <th><i class="fas fa-laptop"></i> Producto</th>
+                        <th><i class="fas fa-tag"></i> Precio Unit.</th>
+                        <th><i class="fas fa-sort-numeric-up"></i> Cantidad</th>
+                        <th><i class="fas fa-calculator"></i> Subtotal</th>
+                        <th><i class="fas fa-percentage"></i> Descuento</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaRegistros"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><i class="fas fa-code"></i> Sistema de Ventas Tech &copy; <span id="year"></span> - Todos los derechos reservados</p>
+    </div>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+let todasLasVentas = [];
+let todosLosClientes = [];
+
+function init() {
+    document.getElementById('year').textContent = new Date().getFullYear();
+    cargarDatos();
+}
+
+async function cargarDatos() {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+
+    try {
+        const { data: ventas, error: errVentas } = await supabase
+            .from('ventas')
+            .select('*')
+            .order('id', { ascending: false });
+
+        if (errVentas) throw errVentas;
+        todasLasVentas = ventas || [];
+
+        const { data: clientes, error: errClientes } = await supabase
+            .from('clientes')
+            .select('*');
+
+        if (errClientes) throw errClientes;
+        todosLosClientes = clientes || [];
+
+        renderStats();
+        renderTabla();
+
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Error al cargar datos: ' + err.message);
+    } finally {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+}
+
+function renderStats() {
+    const totalVentas = todasLasVentas.length;
+    const totalProductos = todasLasVentas.reduce((sum, v) => sum + v.cantidad, 0);
+    const totalDescuento = todasLasVentas.reduce((sum, v) => sum + v.descuento, 0);
+    const totalSubtotal = todasLasVentas.reduce((sum, v) => sum + v.subtotal, 0);
+    const totalNeto = totalSubtotal - totalDescuento;
+
+    document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card blue">
+            <div class="icon"><i class="fas fa-shopping-cart"></i></div>
+            <h3>${totalVentas.toLocaleString('es-ES')}</h3>
+            <p>Total de Ventas</p>
+        </div>
+        <div class="stat-card green">
+            <div class="icon"><i class="fas fa-box"></i></div>
+            <h3>${totalProductos.toLocaleString('es-ES')}</h3>
+            <p>Productos Vendidos</p>
+        </div>
+        <div class="stat-card orange">
+            <div class="icon"><i class="fas fa-tags"></i></div>
+            <h3>L. ${formatNum(totalDescuento)}</h3>
+            <p>Descuentos Aplicados</p>
+        </div>
+        <div class="stat-card purple">
+            <div class="icon"><i class="fas fa-coins"></i></div>
+            <h3>L. ${formatNum(totalNeto)}</h3>
+            <p>Ingresos Netos</p>
+        </div>
+    `;
+
+    document.getElementById('badgeRegistros').innerHTML = `<i class="fas fa-database"></i> ${totalVentas} registros`;
+}
+
+function renderTabla() {
+    const tbody = document.getElementById('tablaRegistros');
+
+    if (todasLasVentas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="no-data"><i class="fas fa-inbox"></i><h3>No hay registros de ventas</h3><p>Aun no se han realizado transacciones en el sistema</p></div></td></tr>`;
+        return;
+    }
+
+    let html = '';
+    todasLasVentas.forEach(v => {
+        const cliente = todosLosClientes.find(c => c.dni === v.dni_cliente);
+        const nombres = (cliente ? cliente.nombre : '').split(' ');
+        let iniciales = '';
+        for (let n of nombres) {
+            if (n.length > 0) iniciales += n[0].toUpperCase();
+            if (iniciales.length >= 2) break;
+        }
+        const icono = getIcono(v.producto);
+
+        html += `<tr>
+            <td><span class="dni-badge">${v.dni_cliente}</span></td>
+            <td>
+                <div class="name-cell">
+                    <div class="avatar">${iniciales || '?'}</div>
+                    ${cliente ? cliente.nombre : 'N/A'}
+                </div>
+            </td>
+            <td>
+                <div class="product-cell">
+                    <div class="product-icon"><i class="fas ${icono}"></i></div>
+                    ${v.producto}
+                </div>
+            </td>
+            <td><span class="price-tag">L. ${formatNum(v.precio)}</span></td>
+            <td><span class="qty-badge">${v.cantidad} unid.</span></td>
+            <td><span class="subtotal-cell">L. ${formatNum(v.subtotal)}</span></td>
+            <td>
+                ${v.descuento > 0 
+                    ? `<span class="discount-cell"><i class="fas fa-arrow-down"></i> L. ${formatNum(v.descuento)}</span>` 
+                    : `<span style="color: var(--gray);">-</span>`}
+            </td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function getIcono(producto) {
+    const p = producto.toLowerCase();
+    if(p.includes('mouse')) return 'fa-mouse';
+    if(p.includes('teclado')) return 'fa-keyboard';
+    if(p.includes('monitor')) return 'fa-desktop';
+    if(p.includes('disco')) return 'fa-hdd';
+    if(p.includes('ram')) return 'fa-memory';
+    if(p.includes('fuente')) return 'fa-bolt';
+    if(p.includes('procesador')) return 'fa-microchip';
+    if(p.includes('tarjeta')) return 'fa-server';
+    return 'fa-microchip';
+}
+
+function formatNum(n) {
+    return Number(n || 0).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+init();
+</script>
+
+</body>
+</html>

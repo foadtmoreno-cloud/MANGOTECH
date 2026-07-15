@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDE de Eliminacion, Busquedas y Filtros | Tienda Tech</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        .table-wrapper thead {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.2));
+        }
+        .table-wrapper tbody tr:hover {
+            background: rgba(239, 68, 68, 0.05);
+        }
+        .search-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+        .search-grid input, .search-grid select {
+            width: 100%;
+            padding: 13px 16px;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: var(--font-body);
+            transition: all 0.25s ease;
+            background: rgba(10, 14, 18, 0.8);
+            color: var(--white);
+            outline: none;
+        }
+        .search-grid input::placeholder { color: var(--gray); }
+        .search-grid input:focus, .search-grid select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(34, 211, 160, 0.15);
+        }
+        .search-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        .search-section {
+            background: rgba(10, 14, 18, 0.5);
+            border-radius: 14px;
+            padding: 26px;
+            margin-bottom: 28px;
+            border: 1px solid var(--glass-border);
+            position: relative;
+        }
+        .search-section h3 {
+            font-family: var(--font-display);
+            font-size: 15px;
+            color: var(--white);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+        }
+        .search-section h3 i { color: var(--primary-light); }
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 14, 18, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .loading-overlay.hidden { display: none; }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 3px solid var(--glass-border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            color: var(--primary-light);
+            font-family: var(--font-mono);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">&gt; Cargando datos de la base de datos...</div>
+</div>
+
+<div class="bg-animation">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+<div class="noise"></div>
+
+<div class="container">
+
+    <div class="header">
+        <div class="header-left">
+            <i class="fas fa-tools" style="font-size:28px; color:var(--primary);"></i>
+            <div>
+                <h1>IDE de Eliminacion, Busquedas y Filtros</h1>
+                <p>Panel de administracion de datos - Tienda Tech</p>
+            </div>
+        </div>
+        <a href="inicio.html" class="btn-back">
+            <i class="fas fa-home"></i> Inicio
+        </a>
+    </div>
+
+    <div class="tabs">
+        <a href="#" class="tab active" id="tabVentas" onclick="mostrarTab('ventas')">
+            <i class="fas fa-shopping-cart"></i> Ventas
+        </a>
+        <a href="#" class="tab" id="tabClientes" onclick="mostrarTab('clientes')">
+            <i class="fas fa-users"></i> Clientes
+        </a>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <!-- VENTAS TAB -->
+    <div id="panelVentas">
+        <div class="card">
+            <div class="search-section">
+                <h3><i class="fas fa-filter"></i> Busquedas y Filtros de Ventas</h3>
+                <div class="search-grid">
+                    <input type="text" id="busqueda" placeholder="Buscar por DNI, Cliente o Producto..." oninput="filtrarVentas()">
+                    <select id="filtroProducto" onchange="filtrarVentas()">
+                        <option value="">Todos los productos</option>
+                    </select>
+                    <input type="number" id="precioMin" step="0.01" placeholder="Precio minimo (L.)" oninput="filtrarVentas()">
+                    <input type="number" id="precioMax" step="0.01" placeholder="Precio maximo (L.)" oninput="filtrarVentas()">
+                    <input type="date" id="fechaDesde" onchange="filtrarVentas()">
+                    <input type="date" id="fechaHasta" onchange="filtrarVentas()">
+                </div>
+                <div class="search-actions">
+                    <button type="button" class="btn-search" onclick="filtrarVentas()">
+                        <i class="fas fa-search"></i> Aplicar Filtros
+                    </button>
+                    <button type="button" class="btn-clear-search" onclick="limpiarFiltros()">
+                        <i class="fas fa-eraser"></i> Limpiar Filtros
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-bar" id="statsBar"></div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>DNI Cliente</th>
+                            <th>Cliente</th>
+                            <th>Producto</th>
+                            <th>Precio</th>
+                            <th>Cant.</th>
+                            <th>Subtotal</th>
+                            <th>Desc.</th>
+                            <th>Fecha / Hora</th>
+                            <th>Accion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaVentas"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLIENTES TAB -->
+    <div id="panelClientes" style="display:none;">
+        <div class="card">
+            <div class="search-section">
+                <h3><i class="fas fa-search"></i> Buscar Clientes</h3>
+                <div class="search-grid" style="grid-template-columns: 1fr auto;">
+                    <input type="text" id="busquedaCliente" placeholder="Buscar por DNI o Nombre del cliente..." oninput="filtrarClientes()">
+                    <div class="search-actions">
+                        <button type="button" class="btn-search" onclick="filtrarClientes()">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                        <button type="button" class="btn-clear-search" onclick="limpiarBusquedaCliente()">
+                            <i class="fas fa-eraser"></i> Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>DNI</th>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Celular</th>
+                            <th>Total Compras</th>
+                            <th>Total Gastado</th>
+                            <th>Accion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaClientes"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><i class="fas fa-code"></i> Sistema de Ventas Tech &copy; <span id="year"></span> - Todos los derechos reservados</p>
+    </div>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+let todasLasVentas = [];
+let todosLosClientes = [];
+let ventasFiltradas = [];
+let clientesFiltrados = [];
+
+function init() {
+    document.getElementById('year').textContent = new Date().getFullYear();
+    cargarDatos();
+}
+
+async function cargarDatos() {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+
+    try {
+        // Cargar ventas
+        const { data: ventas, error: errVentas } = await supabase
+            .from('ventas')
+            .select('*')
+            .order('id', { ascending: false });
+
+        if (errVentas) throw errVentas;
+        todasLasVentas = ventas || [];
+
+        // Cargar clientes
+        const { data: clientes, error: errClientes } = await supabase
+            .from('clientes')
+            .select('*');
+
+        if (errClientes) throw errClientes;
+        todosLosClientes = clientes || [];
+
+        cargarProductosFiltro();
+        filtrarVentas();
+        filtrarClientes();
+
+    } catch (err) {
+        console.error('Error cargando datos:', err);
+        alert('Error al cargar datos: ' + err.message);
+    } finally {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+}
+
+function mostrarAlerta(tipo) {
+    const container = document.getElementById('alertContainer');
+    let texto = '';
+    if (tipo === 'venta_eliminada') texto = 'La venta ha sido eliminada correctamente.';
+    if (tipo === 'cliente_eliminado') texto = 'El cliente y sus ventas asociadas han sido eliminados correctamente.';
+    if (!texto) return;
+
+    container.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> ${texto}</div>`;
+    setTimeout(() => container.innerHTML = '', 4000);
+}
+
+function mostrarTab(tab) {
+    document.getElementById('panelVentas').style.display = tab === 'ventas' ? 'block' : 'none';
+    document.getElementById('panelClientes').style.display = tab === 'clientes' ? 'block' : 'none';
+    document.getElementById('tabVentas').className = 'tab' + (tab === 'ventas' ? ' active' : '');
+    document.getElementById('tabClientes').className = 'tab' + (tab === 'clientes' ? ' active' : '');
+}
+
+function cargarProductosFiltro() {
+    const productos = [...new Set(todasLasVentas.map(v => v.producto))].sort();
+    const select = document.getElementById('filtroProducto');
+    select.innerHTML = '<option value="">Todos los productos</option>';
+    productos.forEach(p => {
+        select.innerHTML += `<option value="${p}">${p}</option>`;
+    });
+}
+
+function filtrarVentas() {
+    let ventas = [...todasLasVentas];
+    const busqueda = document.getElementById('busqueda').value.toLowerCase().trim();
+    const filtroProducto = document.getElementById('filtroProducto').value;
+    const precioMin = document.getElementById('precioMin').value;
+    const precioMax = document.getElementById('precioMax').value;
+    const fechaDesde = document.getElementById('fechaDesde').value;
+    const fechaHasta = document.getElementById('fechaHasta').value;
+
+    ventas = ventas.filter(v => {
+        const cliente = todosLosClientes.find(c => c.dni === v.dni_cliente);
+        const nombreCliente = cliente ? cliente.nombre.toLowerCase() : '';
+
+        if (busqueda && !v.dni_cliente.toLowerCase().includes(busqueda) && 
+            !nombreCliente.includes(busqueda) && 
+            !v.producto.toLowerCase().includes(busqueda)) return false;
+        if (filtroProducto && v.producto !== filtroProducto) return false;
+        if (precioMin && v.precio < parseFloat(precioMin)) return false;
+        if (precioMax && v.precio > parseFloat(precioMax)) return false;
+        if (fechaDesde && v.fecha < fechaDesde) return false;
+        if (fechaHasta && v.fecha > fechaHasta) return false;
+        return true;
+    });
+
+    ventasFiltradas = ventas;
+    renderVentas();
+    renderStats();
+}
+
+function renderStats() {
+    let total = 0, subtotal = 0, descuento = 0, cantidad = 0;
+    ventasFiltradas.forEach(v => {
+        total++;
+        subtotal += v.subtotal;
+        descuento += v.descuento;
+        cantidad += v.cantidad;
+    });
+
+    document.getElementById('statsBar').innerHTML = `
+        <div class="stat-item"><h4>${total}</h4><p>Registros Encontrados</p></div>
+        <div class="stat-item"><h4>L. ${formatNum(subtotal)}</h4><p>Subtotal</p></div>
+        <div class="stat-item"><h4>L. ${formatNum(descuento)}</h4><p>Descuentos</p></div>
+        <div class="stat-item"><h4>${cantidad}</h4><p>Unidades</p></div>
+    `;
+}
+
+function renderVentas() {
+    const tbody = document.getElementById('tablaVentas');
+
+    if (ventasFiltradas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10"><div class="no-data"><i class="fas fa-inbox"></i><h3>No se encontraron ventas</h3><p>Intenta con otros criterios de busqueda o filtros</p></div></td></tr>`;
+        return;
+    }
+
+    let html = '';
+    ventasFiltradas.forEach(v => {
+        const cliente = todosLosClientes.find(c => c.dni === v.dni_cliente);
+        const icono = getIcono(v.producto);
+        html += `<tr>
+            <td><span class="id-badge">#${v.id}</span></td>
+            <td><span class="dni-badge">${v.dni_cliente}</span></td>
+            <td><strong>${cliente ? cliente.nombre : 'N/A'}</strong></td>
+            <td><i class="fas ${icono}" style="color:var(--primary-light);margin-right:8px;"></i>${v.producto}</td>
+            <td class="price-tag">L. ${formatNum(v.precio)}</td>
+            <td>${v.cantidad}</td>
+            <td class="price-tag">L. ${formatNum(v.subtotal)}</td>
+            <td class="discount-cell">${v.descuento > 0 ? 'L. ' + formatNum(v.descuento) : '-'}</td>
+            <td class="date-cell">${v.fecha}<br>${v.hora}</td>
+            <td>
+                <button type="button" class="btn-delete" onclick="eliminarVenta(${v.id})">
+                    <i class="fas fa-trash-alt"></i> Eliminar
+                </button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+async function eliminarVenta(id) {
+    if (!confirm('¿Esta seguro de eliminar esta venta? Esta accion no se puede deshacer.')) return;
+
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    try {
+        const { error } = await supabase.from('ventas').delete().eq('id', id);
+        if (error) throw error;
+        await cargarDatos();
+        mostrarAlerta('venta_eliminada');
+    } catch (err) {
+        alert('Error al eliminar: ' + err.message);
+    } finally {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+}
+
+function limpiarFiltros() {
+    document.getElementById('busqueda').value = '';
+    document.getElementById('filtroProducto').value = '';
+    document.getElementById('precioMin').value = '';
+    document.getElementById('precioMax').value = '';
+    document.getElementById('fechaDesde').value = '';
+    document.getElementById('fechaHasta').value = '';
+    filtrarVentas();
+}
+
+function filtrarClientes() {
+    let clientes = [...todosLosClientes];
+    const busqueda = document.getElementById('busquedaCliente').value.toLowerCase().trim();
+
+    if (busqueda) {
+        clientes = clientes.filter(c => 
+            c.dni.toLowerCase().includes(busqueda) || 
+            c.nombre.toLowerCase().includes(busqueda)
+        );
+    }
+
+    clientes = clientes.map(c => {
+        const compras = todasLasVentas.filter(v => v.dni_cliente === c.dni);
+        return {
+            ...c,
+            total_compras: compras.length,
+            total_gastado: compras.reduce((sum, v) => sum + v.subtotal, 0)
+        };
+    });
+
+    clientes.sort((a, b) => b.total_gastado - a.total_gastado);
+    clientesFiltrados = clientes;
+    renderClientes();
+}
+
+function renderClientes() {
+    const tbody = document.getElementById('tablaClientes');
+
+    if (clientesFiltrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="no-data"><i class="fas fa-inbox"></i><h3>No se encontraron clientes</h3><p>Intenta con otros criterios de busqueda</p></div></td></tr>`;
+        return;
+    }
+
+    let html = '';
+    clientesFiltrados.forEach(c => {
+        html += `<tr>
+            <td><span class="dni-badge">${c.dni}</span></td>
+            <td><strong>${c.nombre}</strong></td>
+            <td>${c.email}</td>
+            <td>${c.celular}</td>
+            <td>${c.total_compras}</td>
+            <td class="price-tag">L. ${formatNum(c.total_gastado)}</td>
+            <td>
+                <button type="button" class="btn-delete" onclick="eliminarCliente('${c.dni}')">
+                    <i class="fas fa-trash-alt"></i> Eliminar
+                </button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+async function eliminarCliente(dni) {
+    if (!confirm('¿Esta seguro de eliminar este cliente? Se eliminaran TODAS sus ventas asociadas. Esta accion no se puede deshacer.')) return;
+
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    try {
+        // Eliminar ventas del cliente
+        const { error: errVentas } = await supabase.from('ventas').delete().eq('dni_cliente', dni);
+        if (errVentas) throw errVentas;
+
+        // Eliminar cliente
+        const { error: errCliente } = await supabase.from('clientes').delete().eq('dni', dni);
+        if (errCliente) throw errCliente;
+
+        await cargarDatos();
+        mostrarAlerta('cliente_eliminado');
+    } catch (err) {
+        alert('Error al eliminar: ' + err.message);
+    } finally {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+}
+
+function limpiarBusquedaCliente() {
+    document.getElementById('busquedaCliente').value = '';
+    filtrarClientes();
+}
+
+function getIcono(producto) {
+    const p = producto.toLowerCase();
+    if(p.includes('mouse')) return 'fa-mouse';
+    if(p.includes('teclado')) return 'fa-keyboard';
+    if(p.includes('monitor')) return 'fa-desktop';
+    if(p.includes('disco')) return 'fa-hdd';
+    if(p.includes('ram')) return 'fa-memory';
+    if(p.includes('fuente')) return 'fa-bolt';
+    if(p.includes('procesador')) return 'fa-microchip';
+    if(p.includes('tarjeta')) return 'fa-server';
+    return 'fa-microchip';
+}
+
+function formatNum(n) {
+    return Number(n || 0).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+init();
+</script>
+
+</body>
+</html>

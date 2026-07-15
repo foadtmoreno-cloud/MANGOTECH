@@ -1,0 +1,7 @@
+# Netlify redirects
+/index.html    /index.html    200
+/guardar.html  /guardar.html  200
+/administrar.html /administrar.html 200
+/registros.html /registros.html 200
+/inicio.html   /inicio.html   200
+/*             /inicio.html   200
