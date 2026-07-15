@@ -6,7 +6,7 @@
     <title>Registros de Ventas | Tienda Tech</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <link rel="stylesheet" href="estilos.css">
     <style>
         .table-section { margin-bottom: 32px; }
@@ -116,7 +116,7 @@ async function cargarDatos() {
     document.getElementById('loadingOverlay').classList.remove('hidden');
 
     try {
-        const { data: ventas, error: errVentas } = await supabase
+        const { data: ventas, error: errVentas } = await supabaseClient
             .from('ventas')
             .select('*')
             .order('id', { ascending: false });
@@ -124,7 +124,7 @@ async function cargarDatos() {
         if (errVentas) throw errVentas;
         todasLasVentas = ventas || [];
 
-        const { data: clientes, error: errClientes } = await supabase
+        const { data: clientes, error: errClientes } = await supabaseClient
             .from('clientes')
             .select('*');
 

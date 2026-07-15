@@ -6,7 +6,7 @@
     <title>IDE de Eliminacion, Busquedas y Filtros | Tienda Tech</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <link rel="stylesheet" href="estilos.css">
     <style>
         .table-wrapper thead {
@@ -234,7 +234,7 @@ async function cargarDatos() {
 
     try {
         // Cargar ventas
-        const { data: ventas, error: errVentas } = await supabase
+        const { data: ventas, error: errVentas } = await supabaseClient
             .from('ventas')
             .select('*')
             .order('id', { ascending: false });
@@ -243,7 +243,7 @@ async function cargarDatos() {
         todasLasVentas = ventas || [];
 
         // Cargar clientes
-        const { data: clientes, error: errClientes } = await supabase
+        const { data: clientes, error: errClientes } = await supabaseClient
             .from('clientes')
             .select('*');
 
@@ -372,7 +372,7 @@ async function eliminarVenta(id) {
 
     document.getElementById('loadingOverlay').classList.remove('hidden');
     try {
-        const { error } = await supabase.from('ventas').delete().eq('id', id);
+        const { error } = await supabaseClient.from('ventas').delete().eq('id', id);
         if (error) throw error;
         await cargarDatos();
         mostrarAlerta('venta_eliminada');
@@ -451,11 +451,11 @@ async function eliminarCliente(dni) {
     document.getElementById('loadingOverlay').classList.remove('hidden');
     try {
         // Eliminar ventas del cliente
-        const { error: errVentas } = await supabase.from('ventas').delete().eq('dni_cliente', dni);
+        const { error: errVentas } = await supabaseClient.from('ventas').delete().eq('dni_cliente', dni);
         if (errVentas) throw errVentas;
 
         // Eliminar cliente
-        const { error: errCliente } = await supabase.from('clientes').delete().eq('dni', dni);
+        const { error: errCliente } = await supabaseClient.from('clientes').delete().eq('dni', dni);
         if (errCliente) throw errCliente;
 
         await cargarDatos();
