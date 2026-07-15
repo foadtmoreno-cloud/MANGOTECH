@@ -1,0 +1,717 @@
+<?php
+session_start();
+include("CONEXION.PHP");
+
+// ========== RECIBIR DATOS DEL CLIENTE ==========
+$DNI = isset($_POST['DNI']) ? $_POST['DNI'] : '';
+$NOMBRE = isset($_POST['NOMBRE']) ? $_POST['NOMBRE'] : '';
+$EMAIL = isset($_POST['EMAIL']) ? $_POST['EMAIL'] : '';
+$CELULAR = isset($_POST['CELULAR']) ? $_POST['CELULAR'] : '';
+
+// Si la página se refresca y los datos POST vienen vacíos, intentamos recuperarlos de la sesión para que no se queden en 0
+if (empty($DNI) && isset($_SESSION['DNI_RESPALDO'])) {
+    $DNI = $_SESSION['DNI_RESPALDO'];
+    $NOMBRE = $_SESSION['NOMBRE_RESPALDO'];
+    $EMAIL = $_SESSION['EMAIL_RESPALDO'];
+    $CELULAR = $_SESSION['CELULAR_RESPALDO'];
+} else {
+    // Guardamos un respaldo temporal en sesión por si refrescan la página
+    $_SESSION['DNI_RESPALDO'] = $DNI;
+    $_SESSION['NOMBRE_RESPALDO'] = $NOMBRE;
+    $_SESSION['EMAIL_RESPALDO'] = $EMAIL;
+    $_SESSION['CELULAR_RESPALDO'] = $CELULAR;
+}
+
+// ========== VERIFICAR SI EL CLIENTE YA EXISTE Y GUARDAR ==========
+if (!empty($DNI)) {
+    $VERIFICAR = "SELECT * FROM CLIENTES WHERE DNI = '$DNI'";
+    $RESULTADO_VER = mysqli_query($CONEXION, $VERIFICAR);
+
+    if (mysqli_num_rows($RESULTADO_VER) == 0) {
+        $SQL_CLIENTE = "INSERT INTO CLIENTES (DNI, NOMBRE, EMAIL, CELULAR) 
+                        VALUES ('$DNI', '$NOMBRE', '$EMAIL', '$CELULAR')";
+        mysqli_query($CONEXION, $SQL_CLIENTE);
+    } else {
+        $SQL_ACTUALIZAR = "UPDATE CLIENTES SET NOMBRE='$NOMBRE', EMAIL='$EMAIL', CELULAR='$CELULAR' 
+                           WHERE DNI='$DNI'";
+        mysqli_query($CONEXION, $SQL_ACTUALIZAR);
+    }
+}
+
+// ========== GUARDAR PRODUCTOS EN LA BASE DE DATOS ==========
+$PRODUCTOS_GUARDADOS = 0;
+$VENTAS_DETALLE = array();
+
+$FECHA = date('Y-m-d');
+$HORA = date('H:i:s');
+
+// Si hay productos en la sesión, los procesamos
+if (isset($_SESSION['PRODUCTOS']) && count($_SESSION['PRODUCTOS']) > 0) {
+    foreach ($_SESSION['PRODUCTOS'] as $PROD) {
+        $PRODUCTO = $PROD['PRODUCTO'];
+        $PRECIO = $PROD['PRECIO'];
+        $CANTIDAD = $PROD['CANTIDAD'];
+        $SUBTOTAL = $PROD['SUBTOTAL'];
+        $DESCUENTO = $PROD['DESCUENTO'];
+
+        // Solo insertamos en la BD si venimos de un envío de formulario (evita duplicados al refrescar)
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $SQL_VENTA = "INSERT INTO VENTAS (DNI_CLIENTE, PRODUCTO, PRECIO, CANTIDAD, SUBTOTAL, DESCUENTO, FECHA, HORA) 
+                          VALUES ('$DNI', '$PRODUCTO', '$PRECIO', '$CANTIDAD', '$SUBTOTAL', '$DESCUENTO', '$FECHA', '$HORA')";
+            mysqli_query($CONEXION, $SQL_VENTA);
+        }
+    }
+    // Dejamos los productos disponibles para la vista de impresión en una variable de respaldo
+    $_SESSION['DETALLE_RESPALDO'] = $_SESSION['PRODUCTOS'];
+}
+
+// Aseguramos mantener el detalle visible aunque se refresque la pantalla
+if (isset($_SESSION['DETALLE_RESPALDO'])) {
+    $VENTAS_DETALLE = $_SESSION['DETALLE_RESPALDO'];
+    $PRODUCTOS_GUARDADOS = count($VENTAS_DETALLE);
+}
+
+// Calcular totales de forma segura
+$SUBTOTAL_GENERAL = 0;
+$TOTAL_DESCUENTO = 0;
+$TOTAL_PRODUCTOS = 0;
+foreach ($VENTAS_DETALLE as $PROD) {
+    $SUBTOTAL_GENERAL += $PROD['SUBTOTAL'];
+    $TOTAL_DESCUENTO += $PROD['DESCUENTO'];
+    $TOTAL_PRODUCTOS += $PROD['CANTIDAD'];
+}
+$IMPUESTO = ($SUBTOTAL_GENERAL - $TOTAL_DESCUENTO) * 0.15;
+$TOTAL_PAGO = ($SUBTOTAL_GENERAL - $TOTAL_DESCUENTO) + $IMPUESTO;
+
+mysqli_close($CONEXION);
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venta Guardada | Tienda Tech</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="estilos.css">
+    <style>
+        /* ========== ESTILOS PANTALLA ========== */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .success-card {
+            max-width: 640px;
+            width: 100%;
+            background: var(--dark-light);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 0 0 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Terminal-window chrome bar across the top, ties back to the header on INDEX */
+        .success-card::before {
+            content: '● ● ●';
+            display: block;
+            position: relative;
+            text-align: left;
+            padding: 14px 20px;
+            font-size: 11px;
+            letter-spacing: 6px;
+            color: var(--gray);
+            background: var(--dark);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .success-card-body {
+            padding: 40px 40px 0;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .success-icon {
+            width: 96px; height: 96px;
+            border-radius: 50%;
+            background: var(--dark);
+            border: 2px solid var(--success);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 28px;
+            animation: scaleIn 0.5s ease-out 0.3s both, pulse 2.4s infinite 0.8s;
+            position: relative;
+        }
+
+        .success-icon::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            border: 1px solid rgba(74, 222, 128, 0.35);
+            animation: ripple 2.4s infinite;
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 rgba(74, 222, 128, 0); }
+            50% { box-shadow: 0 0 24px rgba(74, 222, 128, 0.35); }
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+
+        .success-icon i { font-size: 42px; color: var(--success); }
+
+        .success-card h1 {
+            font-family: var(--font-display);
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--gray-light);
+            margin-bottom: 36px;
+            font-weight: 500;
+        }
+
+        /* ========== RECIBO — misma identidad que el carrito de INDEX ========== */
+        .receipt,
+        .products-summary,
+        .total-section {
+            background: var(--paper);
+            color: var(--ink);
+            border-radius: 14px;
+            padding: 28px;
+            margin-bottom: 20px;
+            text-align: left;
+            border: 1px solid var(--paper-dim);
+            position: relative;
+        }
+
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px dashed rgba(35, 36, 31, 0.3);
+        }
+
+        .receipt-header h2 {
+            font-family: var(--font-display);
+            font-size: 17px;
+            color: var(--ink);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .receipt-header p {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--ink-soft);
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px dotted rgba(35, 36, 31, 0.25);
+            font-size: 14px;
+        }
+
+        .receipt-row:last-child { border-bottom: none; }
+
+        .receipt-row .label {
+            color: var(--ink-soft);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .receipt-row .label i {
+            color: var(--ink-soft);
+            width: 18px;
+            font-size: 13px;
+        }
+
+        .receipt-row .value {
+            font-weight: 700;
+            color: var(--ink);
+            font-family: var(--font-mono);
+        }
+
+        .receipt-row.total {
+            margin-top: 10px;
+            padding-top: 16px;
+            border-top: 2px solid var(--ink);
+            border-bottom: none;
+            font-size: 18px;
+        }
+
+        .receipt-row.total .label {
+            color: var(--ink);
+            font-weight: 800;
+        }
+
+        .receipt-row.total .value {
+            color: var(--ink);
+            font-weight: 800;
+            font-size: 24px;
+        }
+
+        .products-summary h3 {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--ink-soft);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+        }
+
+        .products-summary h3 i { color: var(--ink-soft); }
+
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px dotted rgba(35, 36, 31, 0.2);
+            font-size: 13px;
+        }
+
+        .product-item:last-child { border-bottom: none; }
+
+        .product-item .name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--ink-soft);
+            font-weight: 500;
+        }
+
+        .product-item .name i { color: var(--ink-soft); font-size: 11px; }
+
+        .product-item .price {
+            color: var(--ink);
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        /* Barcode strip + torn edge, same signature as the cart receipt on INDEX */
+        .total-section::before {
+            content: '';
+            display: block;
+            height: 28px;
+            margin-bottom: 20px;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--ink) 0 2px, transparent 2px 4px,
+                var(--ink) 4px 5px, transparent 5px 8px,
+                var(--ink) 8px 11px, transparent 11px 13px,
+                var(--ink) 13px 14px, transparent 14px 18px
+            );
+            opacity: 0.8;
+        }
+
+        .total-section {
+            padding-bottom: 42px;
+        }
+
+        .total-section::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 16px;
+            background:
+                linear-gradient(-45deg, var(--dark-light) 8px, transparent 0) 0 0,
+                linear-gradient(45deg, var(--dark-light) 8px, transparent 0) 0 0;
+            background-size: 16px 16px;
+            background-repeat: repeat-x;
+            border-radius: 0 0 14px 14px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 0 40px;
+        }
+
+        .btn-primary {
+            padding: 15px 30px;
+            background: var(--primary);
+            color: var(--dark);
+            text-decoration: none;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: var(--font-body);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 20px rgba(34, 211, 160, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(34, 211, 160, 0.4);
+        }
+
+        .btn-print {
+            padding: 15px 30px;
+            background: transparent;
+            color: var(--secondary);
+            border: 1px solid rgba(245, 165, 36, 0.4);
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: var(--font-body);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-print:hover {
+            background: rgba(245, 165, 36, 0.1);
+            border-color: var(--secondary);
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px; height: 10px;
+            top: -12px;
+            animation: confettiFall 4s linear forwards;
+            z-index: 9999;
+            border-radius: 2px;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* ========== ESTILOS IMPRESION (TAMAÑO TICKET 58MM) ========== */
+        @media print {
+            @page {
+                size: 58mm auto;
+                margin: 0;
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                box-sizing: border-box;
+            }
+
+            body {
+                background: white !important;
+                color: #000 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                display: block !important;
+                font-family: 'Courier New', Courier, monospace, sans-serif;
+                font-size: 10px !important;
+                width: 58mm;
+            }
+
+            .bg-animation, .noise, .confetti,
+            .success-icon, .subtitle,
+            .buttons, .footer, .no-print {
+                display: none !important;
+            }
+
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .success-card {
+                background: white !important;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                padding: 4mm !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                animation: none !important;
+            }
+
+            .success-card::before,
+            .success-card-body {
+                display: block !important;
+                padding: 0 !important;
+                background: none !important;
+                border: none !important;
+            }
+
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 8px;
+                padding-bottom: 5px;
+                border-bottom: 1px dashed #000;
+            }
+
+            .print-header h2 {
+                font-size: 13px !important;
+                font-weight: bold !important;
+                color: #000 !important;
+                margin: 0;
+            }
+
+            .print-header p {
+                font-size: 9px !important;
+                color: #000 !important;
+                margin: 2px 0 0;
+            }
+
+            .receipt, .products-summary, .total-section {
+                background: white !important;
+                border: none !important;
+                border-radius: 0 !important;
+                padding: 0 !important;
+                margin-bottom: 8px !important;
+                width: 100% !important;
+            }
+
+            .receipt-header { display: none !important; }
+            .total-section::before, .total-section::after { display: none !important; }
+
+            .receipt-row, .product-item {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                border-bottom: 1px dotted #000 !important;
+                padding: 3px 0 !important;
+                font-size: 9px !important;
+            }
+
+            .receipt-row .label, .product-item .name {
+                color: #000 !important;
+                font-weight: normal !important;
+                display: block !important;
+            }
+            
+            .receipt-row .label i, .product-item .name i, .products-summary h3 i {
+                display: none !important;
+            }
+
+            .receipt-row .value, .product-item .price {
+                color: #000 !important;
+                font-weight: bold !important;
+            }
+
+            .products-summary h3 {
+                font-size: 10px !important;
+                color: #000 !important;
+                margin-bottom: 4px !important;
+                font-weight: bold !important;
+                border-bottom: 1px solid #000 !important;
+                padding-bottom: 2px;
+            }
+
+            .total-section {
+                border-top: 1px solid #000 !important;
+                padding-top: 4px !important;
+            }
+
+            .total-section .receipt-row.total {
+                border-top: 1px dashed #000 !important;
+                margin-top: 4px !important;
+                padding-top: 4px !important;
+            }
+
+            .total-section .receipt-row.total .label {
+                font-size: 11px !important;
+                font-weight: bold !important;
+            }
+
+            .total-section .receipt-row.total .value {
+                font-size: 12px !important;
+                font-weight: bold !important;
+            }
+
+            .print-footer {
+                display: block !important;
+                text-align: center;
+                margin-top: 10px;
+                padding-top: 5px;
+                border-top: 1px dashed #000;
+                font-size: 8px !important;
+                color: #000 !important;
+            }
+        }
+
+        .print-header, .print-footer { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="bg-animation">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+<div class="noise"></div>
+
+<div class="container">
+    <div class="success-card">
+
+        <div class="success-card-body">
+
+            <div class="print-header">
+                <h2>TIENDA TECH</h2>
+                <p>Sistema de Ventas - Factura de Compra</p>
+                <p>Fecha: <?php echo date('d/m/Y H:i:s'); ?></p>
+            </div>
+
+            <div class="success-icon no-print">
+                <i class="fas fa-check"></i>
+            </div>
+
+            <h1 class="no-print">¡Venta Guardada!</h1>
+            <p class="subtitle no-print">&gt; transaccion registrada exitosamente</p>
+
+            <div class="receipt" id="factura">
+                <div class="receipt-header">
+                    <h2><i class="fas fa-receipt"></i> COMPROBANTE DE VENTA</h2>
+                    <p><?php echo date('d/m/Y H:i:s'); ?></p>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-id-card"></i> DNI Cliente</span>
+                    <span class="value"><?php echo $DNI; ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-user"></i> Cliente</span>
+                    <span class="value"><?php echo $NOMBRE; ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-envelope"></i> Email</span>
+                    <span class="value"><?php echo $EMAIL; ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-phone"></i> Celular</span>
+                    <span class="value"><?php echo $CELULAR; ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-boxes"></i> Productos</span>
+                    <span class="value"><?php echo $PRODUCTOS_GUARDADOS; ?> items</span>
+                </div>
+            </div>
+
+            <?php if(count($VENTAS_DETALLE) > 0) { ?>
+            <div class="products-summary" id="detalle-productos">
+                <h3><i class="fas fa-list"></i> Detalle de Productos</h3>
+                <?php foreach($VENTAS_DETALLE as $PROD) { ?>
+                <div class="product-item">
+                    <span class="name">
+                        <i class="fas fa-chevron-right"></i>
+                        <?php echo $PROD['PRODUCTO']; ?> (x<?php echo $PROD['CANTIDAD']; ?>)
+                    </span>
+                    <span class="price">L. <?php echo number_format($PROD['SUBTOTAL'], 2); ?></span>
+                </div>
+                <?php } ?>
+            </div>
+            <?php } ?>
+
+            <div class="total-section" id="totales">
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-calculator"></i> Subtotal</span>
+                    <span class="value">L. <?php echo number_format($SUBTOTAL_GENERAL, 2); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-tags"></i> Descuento</span>
+                    <span class="value">L. <?php echo number_format($TOTAL_DESCUENTO, 2); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label"><i class="fas fa-percentage"></i> Impuesto (15%)</span>
+                    <span class="value">L. <?php echo number_format($IMPUESTO, 2); ?></span>
+                </div>
+                <div class="receipt-row total">
+                    <span class="label"><i class="fas fa-coins"></i> TOTAL PAGADO</span>
+                    <span class="value">L. <?php echo number_format($TOTAL_PAGO, 2); ?></span>
+                </div>
+            </div>
+
+            <div class="print-footer">
+                <p><strong>Gracias por su compra</strong></p>
+                <p>TIENDA TECH - Sistema de Ventas</p>
+                <p>Este documento es un comprobante de transaccion</p>
+            </div>
+
+        </div>
+
+        <div class="buttons no-print">
+            <a href="INDEX.PHP?nueva_venta=1" class="btn-primary">
+                <i class="fas fa-plus-circle"></i>
+                Nueva Venta
+            </a>
+            <button type="button" class="btn-print" onclick="window.print()">
+                <i class="fas fa-print"></i>
+                Imprimir Factura
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // Efecto Confeti decorativo — paleta acorde a la identidad terminal/verde-ambar
+    const colors = ['#22d3a0', '#f5a524', '#38bdf8', '#4ade80', '#7ce8c9'];
+    for (let i = 0; i < 40; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+        confetti.style.animationDelay = Math.random() * 1 + 's';
+        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        confetti.style.width = (Math.random() * 8 + 6) + 'px';
+        confetti.style.height = (Math.random() * 8 + 6) + 'px';
+        document.body.appendChild(confetti);
+        setTimeout(() => confetti.remove(), 5000);
+    }
+</script>
+
+</body>
+</html>
